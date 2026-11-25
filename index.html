@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>匯率換算</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* VOICE: quiet utility, nothing but the numbers
+   IDEA: a rate board — one ruled line per currency
+   PICTURE: the list itself
+   COLOUR and TYPE: white / near-black, deep green for the active line, coral for errors; Inter Tight figures
+   LAYOUT: single column of rows, thin status line, operator bar while typing */
+:root{color-scheme:light dark;--bg:light-dark(#fff,#0d1412);--ink:light-dark(#10201c,#e8f0ec);--mute:light-dark(#6b7a75,#8fa19a);--line:light-dark(#e8edeb,#1f2b28);--act:light-dark(#00463c,#9fe0c4);--actbg:light-dark(#eef6f2,#13221d);--coral:#ff6f59;--key:light-dark(#f1f4f3,#1a2623)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "Inter Tight","Noto Sans TC",system-ui,sans-serif;overflow-x:clip;padding-bottom:80px}
+main{max-width:560px;margin:0 auto;padding:8px 0}
+.row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);min-height:68px}
+.row.on{background:var(--actbg)}
+.lab{flex:0 1 auto;max-width:60%}
+.flag{margin-left:6px;font-size:1em;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+.code{font-weight:700;font-size:18px;letter-spacing:.01em}
+.row.on .code{color:var(--act)}
+.nm{font:13px/1.4 "Noto Sans TC",sans-serif;color:var(--mute);display:flex;flex-wrap:wrap;align-items:baseline;gap:0 8px}.nm span{white-space:nowrap}.rt{font:inherit;font-variant-numeric:tabular-nums}
+.box{flex:1 1 auto}
+.box{flex:1;text-align:right}
+.val{font:400 clamp(19px,5vw,23px)/1.25 "Inter Tight",sans-serif;padding:4px 0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.row{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
+.row.on .val::after{content:"";display:inline-block;width:2px;height:.9em;margin-left:2px;background:var(--act);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+.eq{font-size:13px;color:var(--mute);min-height:0}
+.eq.err{color:var(--coral)}
+.tools{display:none;gap:4px;flex:none}
+.edit .tools{display:flex}
+.edit .val{opacity:.55}.edit .row{cursor:default}
+.ib{width:40px;height:40px;border:0;border-radius:10px;background:var(--key);color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.ib svg{width:18px;height:18px}
+.ib:disabled{opacity:.3}
+.ib.del{color:var(--coral)}
+.add{display:none;padding:14px 16px}
+.edit .add{display:block}
+select{appearance:none;width:100%;font:inherit;font-size:16px;min-height:48px;padding:0 14px;border-radius:12px;border:1px dashed var(--mute);background:none;color:var(--ink)}
+.foot{position:sticky;top:0;z-index:2;background:var(--bg);display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 16px;font-size:13px;color:var(--mute);border-bottom:1px solid var(--line)}
+.st{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+.dot{width:10px;height:10px;border-radius:50%;background:#2f80ed;box-shadow:0 0 0 3px rgba(47,128,237,.2);flex:none}
+.bad{width:18px;height:18px;border-radius:50%;background:#e5484d;color:#fff;font:700 12px/18px "Inter Tight",sans-serif;text-align:center;flex:none}
+.q{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:none;color:var(--mute);font:600 14px "Inter Tight",sans-serif;cursor:pointer;flex:none}
+.spin{width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--act);border-radius:50%;animation:sp .8s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+.acts{display:flex;gap:6px}
+.ib2{width:40px;height:40px;border:0;border-radius:50%;background:none;color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.ib2 svg{width:22px;height:22px}
+.ib2:active{background:var(--key)}
+.edit #editBtn{background:var(--act);color:var(--bg)}
+.why{white-space:pre-line;margin:8px 16px;padding:10px 12px;border-radius:10px;background:light-dark(#fff1f0,#2a1514);color:light-dark(#9b1c1c,#ffb4ab);font-size:14px;line-height:1.5}
+.keys{position:fixed;left:0;right:0;bottom:0;display:none;background:var(--bg);border-top:1px solid var(--line);padding:8px max(8px,env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.08)}
+.keys.show{display:block}
+.pad{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px}
+.pad button{height:58px;border:0;border-radius:999px;background:var(--key);color:var(--ink);font:400 26px "Inter Tight",sans-serif;cursor:pointer;touch-action:manipulation;display:grid;place-items:center}
+.pad button svg{width:28px;height:28px}
+.pad button:active{filter:brightness(.9)}
+.pad .fn{color:var(--act)}
+.pad .op{background:light-dark(#b9dccd,#2f5c4f);color:light-dark(#00463c,#e6f5c8);font-size:30px}
+.pad .eqk{background:var(--act);color:var(--bg);font-size:30px}
+.grab{display:flex;justify-content:flex-end;max-width:520px;margin:0 auto 6px}
+.grab button{font:14px "Noto Sans TC",sans-serif;border:0;background:none;color:var(--mute);min-height:36px;padding:0 6px;cursor:pointer}
+body.kb{padding-bottom:calc(var(--kh,340px) + 16px)}
+@media(prefers-reduced-motion:reduce){.row.on .val::after{animation:none}}
+button:focus-visible,select:focus-visible{outline:3px solid var(--coral);outline-offset:2px}
+</style>
+</head>
+<body>
+<main id="app">
+ <div class="foot">
+  <span class="st" id="status"></span>
+  <span class="acts"><button class="ib2" id="refresh" aria-label="更新匯率"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></button><button class="ib2" id="editBtn" aria-label="編輯貨幣"></button></span>
+ </div>
+ <div class="why" id="why" hidden></div>
+ <div id="list"></div>
+ <div class="add"><select id="addSel" aria-label="新增貨幣"></select></div>
+</main>
+<div class="keys" id="keys"><div class="pad">
+ <button data-k="C" class="fn">C</button><button data-k="B" class="fn" aria-label="刪除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M8 5h12v14H8l-5-7z"/><path d="M11.5 9.5l5 5M16.5 9.5l-5 5"/></svg></button><button data-k="%" class="fn">%</button><button data-k="/" class="op" aria-label="除">÷</button>
+ <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button data-k="*" class="op" aria-label="乘">×</button>
+ <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button data-k="-" class="op" aria-label="減">−</button>
+ <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="+" class="op" aria-label="加">+</button>
+ <button data-k="P" class="fn" aria-label="括號">( )</button><button data-k="0">0</button><button data-k=".">.</button><button data-k="=" class="eqk">=</button>
+</div></div>
+
+<script>
+{
+const NAMES={TWD:'新台幣',USD:'美元',JPY:'日圓',EUR:'歐元',CNY:'人民幣',HKD:'港幣',KRW:'韓元',GBP:'英鎊',SGD:'新加坡幣',THB:'泰銖',AUD:'澳幣',CAD:'加拿大幣',CHF:'瑞士法郎',NZD:'紐西蘭幣',MYR:'馬來幣',VND:'越南盾',PHP:'菲律賓比索',IDR:'印尼盾',INR:'印度盧比',MOP:'澳門幣',AED:'阿聯酋迪拉姆',SAR:'沙烏地里亞爾',TRY:'土耳其里拉',RUB:'俄羅斯盧布',BRL:'巴西雷亞爾',MXN:'墨西哥披索',ZAR:'南非幣',SEK:'瑞典克朗',NOK:'挪威克朗',DKK:'丹麥克朗',PLN:'波蘭茲羅提',CZK:'捷克克朗',HUF:'匈牙利福林',ILS:'以色列新謝克爾',EGP:'埃及鎊',PKR:'巴基斯坦盧比',BDT:'孟加拉塔卡',LKR:'斯里蘭卡盧比',KHR:'柬埔寨瑞爾',LAK:'寮國基普',MMK:'緬甸元',MNT:'蒙古圖格里克',KZT:'哈薩克堅戈',ARS:'阿根廷披索',CLP:'智利披索',COP:'哥倫比亞披索',PEN:'秘魯索爾',QAR:'卡達里亞爾',KWD:'科威特第納爾',ISK:'冰島克朗'};
+const BUILTIN={t:Date.UTC(2026,10,23,0,2),r:{USD:1,TWD:32.968084,JPY:158.701406,EUR:0.911134,CNY:6.681345,HKD:7.838987,KRW:1343.597019,GBP:0.763577,SGD:1.289081,THB:33.943445,AUD:1.507013,CAD:1.433241,CHF:0.840419,NZD:1.826906,MYR:4.112368,VND:25779.206142,PHP:63.908027,IDR:18276.102736,INR:92.753491,MOP:8.07387,AED:3.6725}};
+const ZERO=new Set(['JPY','KRW','VND','IDR','CLP','HUF','ISK','KHR','LAK','MMK','MNT','COP']);
+const KEY='fx-rows-v3',RKEY='fx-rates-v3';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const ls={get(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let st={list:['TWD','USD','JPY','EUR','CNY','HKD','KRW'],base:'TWD',expr:'1000',...(ls.get(KEY)||{})};
+let R=ls.get(RKEY);if(!R||!R.r||!(R.t>BUILTIN.t))R=BUILTIN;
+let editing=false,busy=false,failed=false,active=false,fresh=false;
+st.list=st.list.filter(c=>R.r[c]>0);if(!st.list.length)st.list=['TWD','USD'];
+if(!st.list.includes(st.base))st.base=st.list[0];
+
+function calc(s){
+ s=String(s).replace(/[,，\s]/g,'').replace(/[×xX]/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
+ if(!s)return 0;
+ if(!/^[\d.+\-*/()%]+$/.test(s))return NaN;
+ let i=0;
+ let pct=false;
+ const atom=()=>{if(s[i]==='('){i++;const v=add();if(s[i]===')')i++;return v}
+  if(s[i]==='-'){i++;return -atom()}
+  const m=s.slice(i).match(/^\d*\.?\d+|^\d+\./);if(!m)throw 0;i+=m[0].length;return parseFloat(m[0])};
+ const num=()=>{let v=atom();pct=false;while(s[i]==='%'){i++;v/=100;pct=true}return v};
+ const mul=()=>{let v=num(),single=true;while(s[i]==='*'||s[i]==='/'){const o=s[i++];const r=num();v=o==='*'?v*r:v/r;single=false}return{v,p:single&&pct}};
+ const add=()=>{let v=mul().v;while(s[i]==='+'||s[i]==='-'){const o=s[i++];const t=mul();const r=t.p?v*t.v:t.v;v=o==='+'?v+r:v-r}return v};
+ try{const v=add();return i===s.length&&isFinite(v)?v:NaN}catch(e){return NaN}
+}
+const conv=(a,f,t)=>a/R.r[f]*R.r[t];
+function fmt(v,c){
+ if(!isFinite(v))return '';
+ const d=Math.abs(v)<1&&v!==0?4:ZERO.has(c)?0:2;
+ return new Intl.NumberFormat('zh-TW',{minimumFractionDigits:0,maximumFractionDigits:d}).format(v);
+}
+const isExpr=s=>/[+*/×÷()%]|.-/.test(String(s).trim());
+const flag=c=>c[0]==='X'?'':String.fromCodePoint(...[...c.slice(0,2)].map(x=>0x1F1E6+x.charCodeAt(0)-65));
+const fmtRate=v=>new Intl.NumberFormat('zh-TW',{maximumSignificantDigits:v>=1000?7:5,maximumFractionDigits:4}).format(v);
+const when=t=>new Intl.DateTimeFormat('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(t));
+const icon={up:'<path d="M6 15l6-6 6 6"/>',down:'<path d="M6 9l6 6 6-6"/>',x:'<path d="M6 6l12 12M18 6L6 18"/>'};
+const svg=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${icon[k]}</svg>`;
+
+function build(){
+ const n=st.list.length;
+ $('list').innerHTML=st.list.map((c,i)=>`<div class="row${c===st.base&&!editing?' on':''}" data-c="${esc(c)}">
+  <div class="lab"><div class="code">${esc(c)}<span class="flag" aria-hidden="true">${flag(c)}</span></div><div class="nm"><span>${esc(NAMES[c]||c)}</span><span class="rt" data-c="${esc(c)}"></span></div></div>
+  <div class="box" role="button" tabindex="0" data-c="${esc(c)}" aria-label="${esc(NAMES[c]||c)}"><div class="val"></div><div class="eq"></div></div>
+  <div class="tools"><button class="ib" data-a="up" ${i===0?'disabled':''} aria-label="上移">${svg('up')}</button><button class="ib" data-a="down" ${i===n-1?'disabled':''} aria-label="下移">${svg('down')}</button><button class="ib del" data-a="del" ${n<=2?'disabled':''} aria-label="移除">${svg('x')}</button></div>
+ </div>`).join('');
+ const avail=Object.keys(R.r).filter(c=>!st.list.includes(c)).sort((a,b)=>(NAMES[a]?0:1)-(NAMES[b]?0:1)||a.localeCompare(b));
+ $('addSel').innerHTML='<option value="">＋ 新增貨幣</option>'+avail.map(c=>`<option value="${esc(c)}">${esc(c)}　${esc(NAMES[c]||'')}</option>`).join('');
+ $('app').classList.toggle('edit',editing);
+ $('editBtn').innerHTML=editing?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>';
+ $('editBtn').setAttribute('aria-label',editing?'完成編輯':'編輯貨幣');
+ fill();
+}
+const pretty=e=>String(e).replace(/\*/g,'×').replace(/\//g,'÷').replace(/-/g,'−');
+const trimOp=e=>{e=String(e).replace(/[+\-*/.(]+$/,'');const o=(e.match(/\(/g)||[]).length-(e.match(/\)/g)||[]).length;return e+')'.repeat(Math.max(0,o))};
+function fill(){
+ const a=calc(trimOp(st.expr)),ok=!isNaN(a);
+ for(const box of document.querySelectorAll('#list .box')){
+  const c=box.dataset.c,val=box.firstElementChild,eq=box.lastElementChild,row=box.closest('.row');
+  const on=c===st.base&&active&&!editing;
+  row.classList.toggle('on',on);
+  if(c===st.base){
+   const ex=isExpr(st.expr);
+   val.textContent=on?(pretty(st.expr)||'0'):(ex?pretty(st.expr):(ok?fmt(a,c):''));
+   eq.textContent=!ok?(on||ex?'看不懂這個算式':''):ex?'= '+fmt(a,c):'';
+   eq.className='eq'+(!ok?' err':'');
+  }else{val.textContent=ok?fmt(conv(a,st.base,c),c):'';eq.textContent='';eq.className='eq'}
+ }
+ for(const sp of document.querySelectorAll('#list .rt')){const c=sp.dataset.c;sp.textContent=c==='USD'?'':'1 USD = '+fmtRate(R.r[c])+' '+c}
+ status();
+ ls.set(KEY,st);
+}
+
+function open(c){
+ if(editing)return;
+ if(c!==st.base){const a=calc(trimOp(st.expr));st.expr=isNaN(a)?'':String(+conv(a,st.base,c).toFixed(ZERO.has(c)?0:2));st.base=c}
+ active=true;fresh=true;
+ $('keys').classList.add('show');document.body.classList.add('kb');
+ document.body.style.setProperty('--kh',$('keys').offsetHeight+'px');
+ fill();
+ const row=document.querySelector('#list .row.on');
+ if(row){const r=row.getBoundingClientRect(),kh=$('keys').offsetHeight;if(r.bottom>innerHeight-kh-8||r.top<0)window.scrollBy({top:r.bottom-(innerHeight-kh-16),behavior:'smooth'})}
+}
+function close(){
+ st.expr=trimOp(st.expr);
+ active=false;$('keys').classList.remove('show');document.body.classList.remove('kb');fill();
+}
+function key(k){
+ if(!active)return;
+ let e=String(st.expr);
+ const ops='+-*/';
+ if(k==='OK')return close();
+ if(k==='C'){e='';fresh=false}
+ else if(k==='B'){e=fresh?'':e.slice(0,-1);fresh=false}
+ else if(k==='='){st.expr=e;return close()}
+ else if(k==='%'){if(/[\d)%]$/.test(e)){e+='%';fresh=false}}
+ else if(k==='P'||k==='('||k===')'){
+  fresh=false;
+  const open=(e.match(/\(/g)||[]).length-(e.match(/\)/g)||[]).length;
+  const end=/[\d)%]$/.test(e);
+  if(k===')'||(k==='P'&&open>0&&end)){if(open>0&&end)e+=')'}
+  else e+=end?'*(':'(';
+ }
+ else if(ops.includes(k)){
+  fresh=false;
+  if(!e){if(k==='-')e='-'}
+  else if(ops.includes(e.slice(-1)))e=e.slice(0,-1)+k;
+  else e+=k;
+ }else{
+  if(fresh){e='';fresh=false}
+  if(/[)%]$/.test(e))e+='*';
+  const last=e.split(/[+\-*/]/).pop();
+  if(k==='.'){if(last.includes('.'))return;if(!last)e+='0'}
+  if(k!=='.'&&last==='0')e=e.slice(0,-1);
+  e+=k;
+ }
+ st.expr=e;fill();
+}
+$('list').addEventListener('click',e=>{
+ const b=e.target.closest('[data-a]');
+ if(!b){const row=e.target.closest('.row');if(row&&!editing)open(row.dataset.c);return}
+ const c=b.closest('.row').dataset.c,i=st.list.indexOf(c),a=b.dataset.a;
+ if(a==='up'&&i>0)[st.list[i-1],st.list[i]]=[st.list[i],st.list[i-1]];
+ if(a==='down'&&i<st.list.length-1)[st.list[i+1],st.list[i]]=[st.list[i],st.list[i+1]];
+ if(a==='del'&&st.list.length>2){
+  if(c===st.base){const v=calc(trimOp(st.expr));const nb=st.list[i===0?1:0];st.expr=isNaN(v)?'':String(+conv(v,c,nb).toFixed(ZERO.has(nb)?0:2));st.base=nb}
+  st.list.splice(i,1);
+ }
+ build();
+});
+$('list').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('.box')){e.preventDefault();open(e.target.closest('.box').dataset.c)}});
+$('addSel').addEventListener('change',e=>{const c=e.target.value;if(c&&!st.list.includes(c)){st.list.push(c);build()}});
+$('editBtn').addEventListener('click',()=>{if(active)close();editing=!editing;build()});
+$('keys').addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(b)key(b.dataset.k)});
+document.addEventListener('keydown',e=>{
+ if(!active)return;
+ const m={'Enter':'=','Escape':'OK','Backspace':'B','Delete':'C','x':'*','X':'*'};
+ const k=m[e.key]||e.key;
+ if(/^[0-9.+\-*/=%()]$/.test(k)||['OK','B','C'].includes(k)){e.preventDefault();key(k)}
+});
+document.addEventListener('click',e=>{if(active&&!e.target.closest('#list .row')&&!e.target.closest('#keys'))close()});
+
+let reason='';
+function status(){
+ const el=$('status');
+ if(busy){el.innerHTML='<span class="spin"></span><span>更新中…</span>';return}
+ const t=R.got?'最後更新 '+when(R.got):'內建匯率 '+when(R.t);
+ el.innerHTML=failed?'<span class="bad" aria-label="更新失敗">!</span><span>'+esc(t)+'</span><button class="q" id="qBtn" aria-label="失敗原因" aria-expanded="'+!$('why').hidden+'">?</button>':'<span class="dot" aria-label="更新成功"></span><span>'+esc(t)+'</span>';
+ if(!failed)$('why').hidden=true;
+}
+$('status').addEventListener('click',e=>{if(!e.target.closest('#qBtn'))return;const w=$('why');w.hidden=!w.hidden;w.textContent=reason;status()});
+async function getJSON(u){
+ const c=new AbortController();const to=setTimeout(()=>c.abort(),8000);
+ try{const r=await fetch(u,{signal:c.signal,cache:'no-store'});if(!r.ok)throw new Error('http:'+r.status);return await r.json()}
+ catch(e){if(e.name==='AbortError')throw new Error('timeout');if(String(e.message).startsWith('http:'))throw e;if(e instanceof SyntaxError)throw new Error('format');throw new Error('net')}
+ finally{clearTimeout(to)}
+}
+const why=m=>m==='timeout'?'超過 8 秒沒有回應':m==='format'||m==='data'?'回傳的資料格式不對':m.startsWith('http:')?'伺服器回應錯誤（HTTP '+m.slice(5)+'）':'連不上伺服器';
+async function update(){
+ if(busy)return;busy=true;status();
+ let n=null;const errs=[];
+ try{const j=await getJSON('https://open.er-api.com/v6/latest/USD');if(j.result==='success'&&j.rates&&j.rates.TWD)n={t:j.time_last_update_unix*1000,r:j.rates};else throw new Error('data')}catch(e){errs.push('ExchangeRate-API：'+why(e.message))}
+ if(!n){try{const j=await getJSON('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');if(j.usd&&j.usd.twd){const r={};for(const k in j.usd){const v=+j.usd[k];if(/^[a-z]{3}$/.test(k)&&v>0)r[k.toUpperCase()]=v}r.USD=1;n={t:Date.parse(j.date+'T00:00:00Z'),r}}else throw new Error('data')}catch(e){errs.push('備用來源 currency-api：'+why(e.message))}}
+ busy=false;
+ if(n){const r={};for(const k in n.r){const v=+n.r[k];if(/^[A-Z]{3}$/.test(k)&&v>0)r[k]=v}R={t:n.t,r,got:Date.now()};ls.set(RKEY,R);failed=false;reason=''}
+ else{
+  failed=true;
+  const head=navigator.onLine===false?'手機目前沒有網路連線。':errs.every(x=>x.endsWith('連不上伺服器'))?'兩個匯率來源都連不上。可能是沒有網路，或是在 claude.ai 頁面裡打開的（那裡不允許連到外部網站）。':'更新失敗。';
+  reason=head+'\n'+errs.join('\n')+'\n目前使用'+(R.got?' '+when(R.got)+' 更新的':'內建的 '+when(R.t))+'匯率。';
+ }
+ $('why').textContent=reason;if(!failed)$('why').hidden=true;
+ if(active)fill();else build();
+}
+$('refresh').addEventListener('click',update);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)update()});
+const timer=setInterval(()=>{if(!document.hidden)update()},30*60*1000);
+
+build();update();
+}
+</script>
+</body>
+</html>
