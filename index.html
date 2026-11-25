@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#ffffff">
 <meta name="mobile-web-app-capable" content="yes">
 <title>匯率換算</title>
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=6">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=6">
-<link rel="manifest" href="manifest.webmanifest?v=6">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=7">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=7">
+<link rel="manifest" href="manifest.webmanifest?v=7">
 <meta name="apple-mobile-web-app-title" content="匯率換算">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
@@ -103,7 +103,6 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--coral);outline
   <div class="sh">匯率資料來源</div>
   <div id="srcList"></div>
   <div class="oxr" id="oxrBox" hidden><label for="oxrId">Open Exchange Rates App ID</label><input id="oxrId" autocomplete="off" spellcheck="false" placeholder="到 openexchangerates.org 免費註冊取得"></div>
-  <p class="sn">XE 只提供付費企業方案，而且不允許網頁直接連線，所以無法加入。</p>
  </div>
  <div id="list"></div>
  <div class="add"><select id="addSel" aria-label="新增貨幣"></select></div>
@@ -289,17 +288,32 @@ document.addEventListener('click',e=>{if(active&&!e.target.closest('#list .row')
 let reason='';
 let ISO=null;try{ISO=new Set(Intl.supportedValuesOf('currency'))}catch(e){}
 const norm=o=>{const r={};for(const k in o){const v=+o[k],K=k.toUpperCase();if(/^[A-Z]{3}$/.test(K)&&v>0&&(!ISO||ISO.has(K)||NAMES[K]))r[K]=v}r.USD=1;return r};
+const BANKS='https://raw.githubusercontent.com/brianhuang/Fx/main/data/banks.json';
+async function bank(k){
+ let j=null,last;
+ for(const u of [BANKS+'?t='+Date.now(),'data/banks.json?t='+Date.now()]){try{j=await getJSON(u);break}catch(e){last=e}}
+ if(!j)throw last||new Error('net');
+ const b=j[k];if(!b||!b.spot||!b.spot.USD)throw new Error(b&&b.error?'bank:'+b.error:'nodata');
+ const mid=c=>{const p=b.spot[c]||(b.cash&&b.cash[c]);return p?(p[0]+p[1])/2:0};
+ const usd=mid('USD'),r={USD:1,TWD:usd};
+ for(const c of new Set([...Object.keys(b.spot),...Object.keys(b.cash||{})])){const m=mid(c);if(m>0)r[c]=usd/m}
+ return{t:Date.parse(b.t),r,bank:true}
+}
 const SRC={
+ oxr:{n:'Open Exchange Rates',d:'每小時更新，金融業常用的資料商。免費方案每月 1,000 次，所以 30 分鐘內不重複抓。',min:30,
+  get:async()=>{const id=(st.oxr||'').trim();if(!id)throw new Error('noid');const j=await getJSON('https://openexchangerates.org/api/latest.json?app_id='+encodeURIComponent(id));if(!j.rates||!j.rates.TWD)throw new Error(j.message||'data');return{t:j.timestamp*1000,r:norm(j.rates)}}},
+ bot:{n:'臺灣銀行',d:'牌告即期匯率的買賣中間價，約每 10 分鐘同步一次。沒有即期報價的幣別（如韓元）改用現金匯率。',get:()=>bank('bot')},
+ mega:{n:'兆豐銀行',d:'牌告即期匯率的買賣中間價，約每 10 分鐘同步一次。沒有即期報價的幣別改用現金匯率。',get:()=>bank('mega')},
  coinbase:{n:'Coinbase',d:'即時報價（約每分鐘），免註冊。沒有提供資料時間，以取得時間為準。',
   get:async()=>{const j=await getJSON('https://api.coinbase.com/v2/exchange-rates?currency=USD');if(!j.data||!j.data.rates||!j.data.rates.TWD)throw new Error('data');return{t:Date.now(),live:true,r:norm(j.data.rates)}}},
- oxr:{n:'Open Exchange Rates',d:'每小時更新，金融業常用的資料商。需要免費註冊取得 App ID（每月 1,000 次）。',
-  get:async()=>{const id=(st.oxr||'').trim();if(!id)throw new Error('noid');const j=await getJSON('https://openexchangerates.org/api/latest.json?app_id='+encodeURIComponent(id));if(!j.rates||!j.rates.TWD)throw new Error(j.message||'data');return{t:j.timestamp*1000,r:norm(j.rates)}}},
  erapi:{n:'ExchangeRate-API',d:'每天更新一次，免註冊。',
   get:async()=>{const j=await getJSON('https://open.er-api.com/v6/latest/USD');if(j.result!=='success'||!j.rates||!j.rates.TWD)throw new Error('data');return{t:j.time_last_update_unix*1000,r:norm(j.rates)}}},
  fawaz:{n:'currency-api（開源）',d:'每天更新一次，免註冊，幣別最多。資料時間只到日期。',
   get:async()=>{const j=await getJSON('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');if(!j.usd||!j.usd.twd)throw new Error('data');return{t:Date.parse(j.date+'T00:00:00Z'),day:true,r:norm(j.usd)}}}
 };
-if(!SRC[st.src])st.src='coinbase';
+if(st.srcV!==2){st.src='oxr';st.srcV=2}
+if(!st.oxr)st.oxr='503f1d9e4ade4aee86d31213512fd963';
+if(!SRC[st.src])st.src='oxr';
 const whenD=t=>new Intl.DateTimeFormat('zh-TW',{month:'numeric',day:'numeric'}).format(new Date(t));
 function status(){
  const el=$('status');
@@ -316,10 +330,12 @@ async function getJSON(u){
  catch(e){if(e.name==='AbortError')throw new Error('timeout');if(String(e.message).startsWith('http:'))throw e;if(e instanceof SyntaxError)throw new Error('format');throw new Error('net')}
  finally{clearTimeout(to)}
 }
-const why=m=>m==='timeout'?'超過 8 秒沒有回應':m==='format'||m==='data'?'回傳的資料格式不對':m==='noid'?'還沒有輸入 App ID':m==='http:401'||m==='http:403'?'App ID 無效或沒有權限（HTTP '+m.slice(5)+'）':m.startsWith('http:')?'伺服器回應錯誤（HTTP '+m.slice(5)+'）':m==='net'?'連不上伺服器':m;
-async function update(){
- if(busy)return;busy=true;status();
- const key=st.src,S=SRC[key];let n=null,err='';
+const why=m=>m==='timeout'?'超過 8 秒沒有回應':m==='format'||m==='data'?'回傳的資料格式不對':m==='noid'?'還沒有輸入 App ID':m==='nodata'?'銀行匯率資料還沒產生（GitHub 自動抓取還沒跑過）':m.startsWith('bank:')?'抓取銀行網站失敗：'+m.slice(5):m==='http:401'||m==='http:403'?'App ID 無效或沒有權限（HTTP '+m.slice(5)+'）':m.startsWith('http:')?'伺服器回應錯誤（HTTP '+m.slice(5)+'）':m==='net'?'連不上伺服器':m;
+async function update(force){
+ if(busy)return;
+ const key=st.src,S=SRC[key];
+ if(!force&&S.min&&R.src===key&&R.got&&Date.now()-R.got<S.min*60000&&!failed)return;
+ busy=true;status();let n=null,err='';
  try{n=await S.get()}catch(e){err=why(e.message)}
  busy=false;
  if(n&&key===st.src){R={...n,src:key,got:Date.now()};ls.set(RKEY,R);failed=false;reason=''}
@@ -336,9 +352,9 @@ function renderSets(){
  $('oxrBox').hidden=st.src!=='oxr';$('oxrId').value=st.oxr||'';
 }
 $('setBtn').addEventListener('click',()=>{const p=$('sets');p.hidden=!p.hidden;if(!p.hidden)renderSets()});
-$('srcList').addEventListener('change',e=>{if(e.target.name!=='src')return;st.src=e.target.value;ls.set(KEY,st);renderSets();if(st.src!=='oxr'||st.oxr)update()});
-$('oxrId').addEventListener('change',e=>{st.oxr=e.target.value.trim();ls.set(KEY,st);update()});
-$('refresh').addEventListener('click',update);
+$('srcList').addEventListener('change',e=>{if(e.target.name!=='src')return;st.src=e.target.value;ls.set(KEY,st);renderSets();if(st.src!=='oxr'||st.oxr)update(true)});
+$('oxrId').addEventListener('change',e=>{st.oxr=e.target.value.trim();ls.set(KEY,st);update(true)});
+$('refresh').addEventListener('click',()=>update(true));
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)update()});
 const timer=setInterval(()=>{if(!document.hidden)update()},30*60*1000);
 
