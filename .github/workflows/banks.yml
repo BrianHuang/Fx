@@ -1,1 +1,127 @@
+name: 抓取銀行牌告匯率
 
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: banks
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 抓取台灣銀行、兆豐銀行即期匯率
+        run: |
+          python3 - <<'PY'
+          import csv, io, json, os, re, urllib.request
+          from datetime import datetime, timezone, timedelta
+
+          TPE = timezone(timedelta(hours=8))
+          UA = {"User-Agent": "Mozilla/5.0 (fx-converter rate fetcher)"}
+
+          def get(url):
+              req = urllib.request.Request(url, headers=UA)
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return r.read().decode("utf-8-sig", errors="replace")
+
+          def num(x):
+              try:
+                  v = float(str(x).replace(",", "").strip())
+                  return v if v > 0 else None
+              except ValueError:
+                  return None
+
+          def tpe_iso(s):
+              s = s.replace("-", "/")
+              for fmt in ("%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M"):
+                  try:
+                      return datetime.strptime(s, fmt).replace(tzinfo=TPE).isoformat()
+                  except ValueError:
+                      pass
+              return None
+
+          out = {"fetched": datetime.now(TPE).isoformat()}
+
+          # 臺灣銀行：官方 CSV（即期與現金買入/賣出）
+          try:
+              rows = list(csv.reader(io.StringIO(get("https://rate.bot.com.tw/xrt/flcsv/0/day"))))
+              spot, cash = {}, {}
+              for r in rows[1:]:
+                  if len(r) < 14 or not re.fullmatch(r"[A-Z]{3}", r[0].strip()):
+                      continue
+                  c = r[0].strip()
+                  sb, ss, cb, cs = num(r[3]), num(r[13]), num(r[2]), num(r[12])
+                  if sb and ss:
+                      spot[c] = [sb, ss]
+                  if cb and cs:
+                      cash[c] = [cb, cs]
+              if "USD" not in spot:
+                  raise ValueError("CSV 沒有美元即期匯率")
+              t = None
+              try:
+                  html = get("https://rate.bot.com.tw/xrt?Lang=zh-TW")
+                  m = re.search(r"掛牌時間[^0-9]*(\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2})", html)
+                  t = tpe_iso(m.group(1)) if m else None
+              except Exception:
+                  pass
+              out["bot"] = {"t": t or out["fetched"], "spot": spot, "cash": cash}
+          except Exception as e:
+              out["bot"] = {"error": str(e)}
+
+          # 兆豐銀行：牌告匯率表（即期買匯、即期賣匯）
+          try:
+              html = get("https://wwwfile.megabank.com.tw/rates/M001/viewF_new_02_02.asp")
+              cell = r"\s*</td>\s*<td[^>]*>\s*([\d.,]+|---)\s*"
+              pat = re.compile(r"\[([A-Z]{3})\]" + cell + cell + cell + cell, re.S)
+              spot, cash = {}, {}
+              for c, sb, cb, ss, cs in pat.findall(html):
+                  if num(sb) and num(ss):
+                      spot[c] = [num(sb), num(ss)]
+                  if num(cb) and num(cs):
+                      cash[c] = [num(cb), num(cs)]
+              if "USD" not in spot:
+                  raise ValueError("匯率表裡找不到美元即期匯率")
+              m = re.search(r"(\d{4}/\d{2}/\d{2})\D{1,80}?(\d{1,2}:\d{2}(?::\d{2})?)", html)
+              t = tpe_iso(m.group(1) + " " + m.group(2)) if m else None
+              out["mega"] = {"t": t or out["fetched"], "spot": spot, "cash": cash}
+          except Exception as e:
+              out["mega"] = {"error": str(e)}
+
+          # 某一家失敗時保留上一次成功的資料
+          path = "data/banks.json"
+          old = {}
+          if os.path.exists(path):
+              try:
+                  old = json.load(open(path, encoding="utf-8"))
+              except Exception:
+                  old = {}
+          for k in ("bot", "mega"):
+              if "error" in out[k] and "spot" in old.get(k, {}):
+                  out[k] = {**old[k], "error": out[k]["error"]}
+
+          os.makedirs("data", exist_ok=True)
+          json.dump(out, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+          print(json.dumps({k: (v.get("error") or v.get("t")) for k, v in out.items() if isinstance(v, dict)}, ensure_ascii=False))
+          PY
+
+      - name: 有變動才存檔
+        run: |
+          git config user.name "rate-bot"
+          git config user.email "rate-bot@users.noreply.github.com"
+          git add data/banks.json
+          if git diff --cached --quiet -- data/banks.json; then
+            echo "匯率沒有變動"
+          elif [ "$(git diff --cached -U0 -- data/banks.json | grep -c '^[-+] ')" -le 2 ]; then
+            echo "只有抓取時間變動，不存檔"
+          else
+            git commit -m "更新銀行匯率"
+            git push
+          fi
