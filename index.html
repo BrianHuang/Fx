@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#ffffff">
 <meta name="mobile-web-app-capable" content="yes">
 <title>匯率換算</title>
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=5">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=5">
-<link rel="manifest" href="manifest.webmanifest?v=5">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=6">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=6">
+<link rel="manifest" href="manifest.webmanifest?v=6">
 <meta name="apple-mobile-web-app-title" content="匯率換算">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
@@ -67,6 +67,14 @@ select{appearance:none;width:100%;font:inherit;font-size:16px;min-height:48px;pa
 .ib2 svg{width:22px;height:22px}
 .ib2:active{background:var(--key)}
 .edit #editBtn{background:var(--act);color:var(--bg)}
+.sets{margin:8px 12px 4px;padding:6px 4px 10px;border:1px solid var(--line);border-radius:14px}
+.sh{font-size:13px;color:var(--mute);padding:6px 12px}
+.opt{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:10px;cursor:pointer}
+.opt input{margin-top:3px;width:18px;height:18px;accent-color:var(--act);flex:none}
+.opt b{font-weight:600}.opt small{display:block;color:var(--mute);font:13px/1.45 "Noto Sans TC",sans-serif}
+.oxr{padding:4px 12px 8px 42px;display:grid;gap:6px;font-size:13px;color:var(--mute)}
+.oxr input{font:inherit;font-size:16px;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:none;color:var(--ink)}
+.sn{font-size:12px;color:var(--mute);margin:6px 12px 0}
 .why{white-space:pre-line;margin:8px 16px;padding:10px 12px;border-radius:10px;background:light-dark(#fff1f0,#2a1514);color:light-dark(#9b1c1c,#ffb4ab);font-size:14px;line-height:1.5}
 .keys{position:fixed;left:0;right:0;bottom:0;display:none;background:var(--bg);border-top:1px solid var(--line);padding:8px max(8px,env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.08)}
 .keys.show{display:block}
@@ -88,9 +96,15 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--coral);outline
 <main id="app">
  <div class="foot">
   <span class="st" id="status"></span>
-  <span class="acts"><button class="ib2" id="refresh" aria-label="更新匯率"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></button><button class="ib2" id="editBtn" aria-label="編輯貨幣"></button></span>
+  <span class="acts"><button class="ib2" id="refresh" aria-label="更新匯率"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></button><button class="ib2" id="editBtn" aria-label="編輯貨幣"></button><button class="ib2" id="setBtn" aria-label="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></span>
  </div>
  <div class="why" id="why" hidden></div>
+ <div class="sets" id="sets" hidden>
+  <div class="sh">匯率資料來源</div>
+  <div id="srcList"></div>
+  <div class="oxr" id="oxrBox" hidden><label for="oxrId">Open Exchange Rates App ID</label><input id="oxrId" autocomplete="off" spellcheck="false" placeholder="到 openexchangerates.org 免費註冊取得"></div>
+  <p class="sn">XE 只提供付費企業方案，而且不允許網頁直接連線，所以無法加入。</p>
+ </div>
  <div id="list"></div>
  <div class="add"><select id="addSel" aria-label="新增貨幣"></select></div>
 </main>
@@ -107,7 +121,7 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--coral);outline
 const NAMES={TWD:'新台幣',USD:'美元',JPY:'日圓',EUR:'歐元',CNY:'人民幣',HKD:'港幣',KRW:'韓元',GBP:'英鎊',SGD:'新加坡幣',THB:'泰銖',AUD:'澳幣',CAD:'加拿大幣',CHF:'瑞士法郎',NZD:'紐西蘭幣',MYR:'馬來幣',VND:'越南盾',PHP:'菲律賓比索',IDR:'印尼盾',INR:'印度盧比',MOP:'澳門幣',AED:'阿聯酋迪拉姆',SAR:'沙烏地里亞爾',TRY:'土耳其里拉',RUB:'俄羅斯盧布',BRL:'巴西雷亞爾',MXN:'墨西哥披索',ZAR:'南非幣',SEK:'瑞典克朗',NOK:'挪威克朗',DKK:'丹麥克朗',PLN:'波蘭茲羅提',CZK:'捷克克朗',HUF:'匈牙利福林',ILS:'以色列新謝克爾',EGP:'埃及鎊',PKR:'巴基斯坦盧比',BDT:'孟加拉塔卡',LKR:'斯里蘭卡盧比',KHR:'柬埔寨瑞爾',LAK:'寮國基普',MMK:'緬甸元',MNT:'蒙古圖格里克',KZT:'哈薩克堅戈',ARS:'阿根廷披索',CLP:'智利披索',COP:'哥倫比亞披索',PEN:'秘魯索爾',QAR:'卡達里亞爾',KWD:'科威特第納爾',ISK:'冰島克朗'};
 const BUILTIN={t:Date.UTC(2026,10,23,0,2),r:{USD:1,TWD:32.968084,JPY:158.701406,EUR:0.911134,CNY:6.681345,HKD:7.838987,KRW:1343.597019,GBP:0.763577,SGD:1.289081,THB:33.943445,AUD:1.507013,CAD:1.433241,CHF:0.840419,NZD:1.826906,MYR:4.112368,VND:25779.206142,PHP:63.908027,IDR:18276.102736,INR:92.753491,MOP:8.07387,AED:3.6725}};
 const ZERO=new Set(['JPY','KRW','VND','IDR','CLP','HUF','ISK','KHR','LAK','MMK','MNT','COP']);
-const KEY='fx-rows-v3',RKEY='fx-rates-v3';
+const KEY='fx-rows-v3',RKEY='fx-rates-v4';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const ls={get(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
@@ -273,11 +287,26 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('click',e=>{if(active&&!e.target.closest('#list .row')&&!e.target.closest('#keys'))close()});
 
 let reason='';
+let ISO=null;try{ISO=new Set(Intl.supportedValuesOf('currency'))}catch(e){}
+const norm=o=>{const r={};for(const k in o){const v=+o[k],K=k.toUpperCase();if(/^[A-Z]{3}$/.test(K)&&v>0&&(!ISO||ISO.has(K)||NAMES[K]))r[K]=v}r.USD=1;return r};
+const SRC={
+ coinbase:{n:'Coinbase',d:'即時報價（約每分鐘），免註冊。沒有提供資料時間，以取得時間為準。',
+  get:async()=>{const j=await getJSON('https://api.coinbase.com/v2/exchange-rates?currency=USD');if(!j.data||!j.data.rates||!j.data.rates.TWD)throw new Error('data');return{t:Date.now(),live:true,r:norm(j.data.rates)}}},
+ oxr:{n:'Open Exchange Rates',d:'每小時更新，金融業常用的資料商。需要免費註冊取得 App ID（每月 1,000 次）。',
+  get:async()=>{const id=(st.oxr||'').trim();if(!id)throw new Error('noid');const j=await getJSON('https://openexchangerates.org/api/latest.json?app_id='+encodeURIComponent(id));if(!j.rates||!j.rates.TWD)throw new Error(j.message||'data');return{t:j.timestamp*1000,r:norm(j.rates)}}},
+ erapi:{n:'ExchangeRate-API',d:'每天更新一次，免註冊。',
+  get:async()=>{const j=await getJSON('https://open.er-api.com/v6/latest/USD');if(j.result!=='success'||!j.rates||!j.rates.TWD)throw new Error('data');return{t:j.time_last_update_unix*1000,r:norm(j.rates)}}},
+ fawaz:{n:'currency-api（開源）',d:'每天更新一次，免註冊，幣別最多。資料時間只到日期。',
+  get:async()=>{const j=await getJSON('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');if(!j.usd||!j.usd.twd)throw new Error('data');return{t:Date.parse(j.date+'T00:00:00Z'),day:true,r:norm(j.usd)}}}
+};
+if(!SRC[st.src])st.src='coinbase';
+const whenD=t=>new Intl.DateTimeFormat('zh-TW',{month:'numeric',day:'numeric'}).format(new Date(t));
 function status(){
  const el=$('status');
  if(busy){el.innerHTML='<span class="spin"></span><span>更新中…</span>';return}
- const t=R.got?'最後更新 '+when(R.got):'內建匯率 '+when(R.t);
- el.innerHTML=failed?'<span class="bad" aria-label="更新失敗">!</span><span>'+esc(t)+'</span><button class="q" id="qBtn" aria-label="失敗原因" aria-expanded="'+!$('why').hidden+'">?</button>':'<span class="dot" aria-label="更新成功"></span><span>'+esc(t)+'</span>';
+ const t=!R.src?'內建匯率 '+when(R.t):(R.live?'即時 ':'資料時間 ')+(R.day?whenD(R.t):when(R.t));
+ const tag=R.src&&SRC[R.src]?' · '+SRC[R.src].n:'';
+ el.innerHTML=(failed?'<span class="bad" aria-label="更新失敗">!</span>':'<span class="dot" aria-label="更新成功"></span>')+'<span>'+esc(t+tag)+'</span>'+(failed?'<button class="q" id="qBtn" aria-label="失敗原因" aria-expanded="'+!$('why').hidden+'">?</button>':'');
  if(!failed)$('why').hidden=true;
 }
 $('status').addEventListener('click',e=>{if(!e.target.closest('#qBtn'))return;const w=$('why');w.hidden=!w.hidden;w.textContent=reason;status()});
@@ -287,22 +316,28 @@ async function getJSON(u){
  catch(e){if(e.name==='AbortError')throw new Error('timeout');if(String(e.message).startsWith('http:'))throw e;if(e instanceof SyntaxError)throw new Error('format');throw new Error('net')}
  finally{clearTimeout(to)}
 }
-const why=m=>m==='timeout'?'超過 8 秒沒有回應':m==='format'||m==='data'?'回傳的資料格式不對':m.startsWith('http:')?'伺服器回應錯誤（HTTP '+m.slice(5)+'）':'連不上伺服器';
+const why=m=>m==='timeout'?'超過 8 秒沒有回應':m==='format'||m==='data'?'回傳的資料格式不對':m==='noid'?'還沒有輸入 App ID':m==='http:401'||m==='http:403'?'App ID 無效或沒有權限（HTTP '+m.slice(5)+'）':m.startsWith('http:')?'伺服器回應錯誤（HTTP '+m.slice(5)+'）':m==='net'?'連不上伺服器':m;
 async function update(){
  if(busy)return;busy=true;status();
- let n=null;const errs=[];
- try{const j=await getJSON('https://open.er-api.com/v6/latest/USD');if(j.result==='success'&&j.rates&&j.rates.TWD)n={t:j.time_last_update_unix*1000,r:j.rates};else throw new Error('data')}catch(e){errs.push('ExchangeRate-API：'+why(e.message))}
- if(!n){try{const j=await getJSON('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');if(j.usd&&j.usd.twd){const r={};for(const k in j.usd){const v=+j.usd[k];if(/^[a-z]{3}$/.test(k)&&v>0)r[k.toUpperCase()]=v}r.USD=1;n={t:Date.parse(j.date+'T00:00:00Z'),r}}else throw new Error('data')}catch(e){errs.push('備用來源 currency-api：'+why(e.message))}}
+ const key=st.src,S=SRC[key];let n=null,err='';
+ try{n=await S.get()}catch(e){err=why(e.message)}
  busy=false;
- if(n){const r={};for(const k in n.r){const v=+n.r[k];if(/^[A-Z]{3}$/.test(k)&&v>0)r[k]=v}R={t:n.t,r,got:Date.now()};ls.set(RKEY,R);failed=false;reason=''}
- else{
+ if(n&&key===st.src){R={...n,src:key,got:Date.now()};ls.set(RKEY,R);failed=false;reason=''}
+ else if(!n){
   failed=true;
-  const head=navigator.onLine===false?'手機目前沒有網路連線。':errs.every(x=>x.endsWith('連不上伺服器'))?'兩個匯率來源都連不上。可能是沒有網路，或是在 claude.ai 頁面裡打開的（那裡不允許連到外部網站）。':'更新失敗。';
-  reason=head+'\n'+errs.join('\n')+'\n目前使用'+(R.got?' '+when(R.got)+' 更新的':'內建的 '+when(R.t))+'匯率。';
+  const head=navigator.onLine===false?'手機目前沒有網路連線。':err==='連不上伺服器'?'連不上 '+S.n+'。可能是沒有網路、這個來源暫時故障，或是在 claude.ai 頁面裡打開的（那裡不允許連到外部網站）。':'從 '+S.n+' 更新失敗：'+err+'。';
+  reason=head+'\n可以到設定換一個資料來源試試。\n目前顯示的是'+(R.src?' '+(SRC[R.src]?SRC[R.src].n:'')+' '+(R.day?whenD(R.t):when(R.t))+' 的':'內建的')+'匯率。';
  }
  $('why').textContent=reason;if(!failed)$('why').hidden=true;
  if(active)fill();else build();
 }
+function renderSets(){
+ $('srcList').innerHTML=Object.entries(SRC).map(([k,v])=>`<label class="opt"><input type="radio" name="src" value="${k}" ${k===st.src?'checked':''}><span><b>${esc(v.n)}</b><small>${esc(v.d)}</small></span></label>`).join('');
+ $('oxrBox').hidden=st.src!=='oxr';$('oxrId').value=st.oxr||'';
+}
+$('setBtn').addEventListener('click',()=>{const p=$('sets');p.hidden=!p.hidden;if(!p.hidden)renderSets()});
+$('srcList').addEventListener('change',e=>{if(e.target.name!=='src')return;st.src=e.target.value;ls.set(KEY,st);renderSets();if(st.src!=='oxr'||st.oxr)update()});
+$('oxrId').addEventListener('change',e=>{st.oxr=e.target.value.trim();ls.set(KEY,st);update()});
 $('refresh').addEventListener('click',update);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)update()});
 const timer=setInterval(()=>{if(!document.hidden)update()},30*60*1000);
